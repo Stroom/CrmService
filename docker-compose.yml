@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: cus_postgres
+    environment:
+      POSTGRES_DB: crm_db
+      POSTGRES_USER: crm_app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "5439:5432"
+    command: postgres -c wal_level=logical -c max_wal_senders=20 -c max_replication_slots=30
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: cus_rabbitmq
+    ports:
+      - "5695:5672"
+      - "15695:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: rabbit
+      RABBITMQ_DEFAULT_PASS: rabbit
+      RABBITMQ_DEFAULT_VHOST: /
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # This must always have one pod. It stores tracking/counting values internally.
+  # Might have to track if the pod is up and restart when needed. Depends on rabbit and postgres to be running.
+  debezium:
+    image: debezium/server:3.0.0.Final
+    container_name: cus_debezium
+    ports:
+      - "8084:8083"
+    volumes:
+      - ./debezium/config:/debezium/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # Do not need to run this often. But if you do, you'd need to reset replication slot if it exists from before. (debezium_crm_init)
+  debezium_init:
+    image: debezium/server:3.0.0.Final
+    container_name: cus_debezium_init
+    ports:
+      - "8085:8083"
+    volumes:
+      - ./debezium/config/init:/debezium/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
