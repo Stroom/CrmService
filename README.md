@@ -33,8 +33,8 @@ This is a Spring Boot application that demonstrates Change Data Capture (CDC) us
 ## Debezium Event Flow
 
 1. Changes in the tracked tables are captured by Debezium
-2. Events are published to RabbitMQ exchange `ee.bigbank.core.exchange` (??? Should be topic exchange ???)
-3. Spring Boot application consumes events from queue `customer_changes_queue` with sourceKey `customer_changes`
+2. Events are published to RabbitMQ topic exchange `crm.update.exchange`
+3. Spring Boot application consumes events from queue `debezium_crm_db.change.TABLENAME_queue` with sourceKey `crm_changes`
 4. Events are logged with operation type (create/update/delete)
-5. Spring Boot application parses the events and forwards to external consumers `customer.change.*`
+5. Spring Boot application parses the events and forwards to external consumers using exchange name `crm.update.exchange` and routingKey `crm.update.*`
 
